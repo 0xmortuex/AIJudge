@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AIJudge — AI Settles Your Arguments</title>
+  <meta name="description" content="Describe any argument or disagreement — AI delivers an impartial verdict with reasoning, roasts, and a shareable court ruling card.">
+  <meta property="og:title" content="AIJudge — AI Settles Your Arguments">
+  <meta property="og:description" content="AI delivers impartial verdicts on your arguments. Get roasted. Share the ruling.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://0xmortuex.github.io/AIJudge/">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Lora:ital,wght@0,400;0,600;1,400&family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/ruling.css">
+  <link rel="stylesheet" href="css/share.css">
+
+  <!-- html2canvas -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
+</head>
+<body>
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Dramatic Entrance Overlay -->
+  <div id="verdict-overlay" class="verdict-overlay">
+    <div class="order-text">Order in the Court</div>
+  </div>
+
+  <!-- === INPUT VIEW === -->
+  <div id="input-view" class="input-view">
+    <div class="logo">
+      <img src="assets/favicon.svg" alt="AIJudge" class="logo-icon">
+      <h1>AIJudge</h1>
+    </div>
+    <p class="tagline">The court will now hear your case.</p>
+
+    <form id="judge-form" class="argument-form">
+      <div class="textarea-wrapper">
+        <textarea
+          id="argument-input"
+          class="argument-input"
+          placeholder="Describe the argument...&#10;&#10;Tip: Include both sides for a fair ruling. Example:&#10;'My roommate says I should do the dishes every day because I cook more, but I think we should alternate regardless of who cooks.'"
+          required
+          minlength="10"
+        ></textarea>
+      </div>
+
+      <p class="examples-label">Try an example</p>
+      <div class="example-chips">
+        <button type="button" class="example-chip" data-text="My friend spoiled a movie I was about to watch and says it's my fault for not seeing it sooner.">Movie spoiler</button>
+        <button type="button" class="example-chip" data-text="My roommate eats my labeled food from the fridge and says it's fine because we share the space.">Fridge thief</button>
+        <button type="button" class="example-chip" data-text="My partner says I spend too much time gaming, but I only play after all chores are done.">Gaming time</button>
+        <button type="button" class="example-chip" data-text="My coworker takes credit for my ideas in meetings and claims they 'built on' my thoughts.">Idea thief</button>
+        <button type="button" class="example-chip" data-text="My friend always cancels plans at the last minute and gets offended when I stop inviting them.">Flaky friend</button>
+        <button type="button" class="example-chip" data-text="My sibling borrowed $200 six months ago, won't pay it back, and says family shouldn't keep score.">Money owed</button>
+      </div>
+
+      <button type="submit" id="submit-btn" class="submit-btn">
+        <span class="btn-text">Judge This</span>
+        <span>&#9878;&#65039;</span>
+        <span class="shortcut">Ctrl+Enter</span>
+      </button>
+
+      <div id="error-message" class="error-message"></div>
+
+      <div id="loading-state" class="loading-state">
+        <span class="gavel-loading">&#9878;</span>
+        <span class="loading-text">The court is deliberating...</span>
+        <span class="loading-time">~10 seconds</span>
+      </div>
+    </form>
+
+    <button id="history-link" class="history-link">&#128220; View Past Rulings</button>
+  </div>
+
+  <!-- === VERDICT VIEW === -->
+  <div id="verdict-view" class="verdict-view">
+    <div class="top-bar">
+      <div class="top-bar-logo">
+        <img src="assets/favicon.svg" alt="">
+        <span>AIJudge</span>
+      </div>
+      <div class="top-bar-actions">
+        <button id="top-new-case" class="btn-secondary">&#9878; New Case</button>
+        <button id="top-history" class="btn-secondary">&#128220; Past Rulings</button>
+      </div>
+    </div>
+
+    <div id="verdict-card" class="verdict-card"></div>
+
+    <div class="action-buttons">
+      <button id="btn-share" class="btn-action btn-share">&#128248; Share Ruling</button>
+      <button id="btn-copy" class="btn-action btn-copy">&#128203; Copy Ruling</button>
+      <button id="btn-appeal" class="btn-action btn-appeal">&#128260; Appeal</button>
+      <button id="btn-new" class="btn-action btn-new">&#9878; New Case</button>
+    </div>
+  </div>
+
+  <!-- === SHARE OVERLAY === -->
+  <div id="share-overlay" class="share-overlay">
+    <div class="share-modal">
+      <div class="share-modal-header">
+        <span class="share-modal-title">&#128248; Share Ruling</span>
+        <button id="share-close" class="share-close-btn">&times;</button>
+      </div>
+      <div class="share-preview">
+        <img id="share-preview-img" src="" alt="Ruling preview">
+      </div>
+      <div class="share-actions">
+        <button id="btn-download-img" class="btn-action btn-download">&#128229; Download Image</button>
+        <button id="btn-copy-img" class="btn-action btn-clipboard">&#128203; Copy Image</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hidden render container for html2canvas -->
+  <div id="share-render-container"></div>
+
+  <!-- === HISTORY PANEL === -->
+  <div id="history-backdrop" class="history-backdrop"></div>
+  <div id="history-panel" class="history-panel">
+    <div class="history-header">
+      <span class="history-title">&#128220; Past Rulings</span>
+      <button id="history-close-btn" class="history-close">&times;</button>
+    </div>
+    <div id="history-list" class="history-list"></div>
+    <div id="history-footer" class="history-footer" style="display:none;">
+      <button id="btn-clear-all" class="btn-clear-all">Clear All Rulings</button>
+    </div>
+  </div>
+
+  <!-- App Script -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
