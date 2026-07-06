@@ -27,9 +27,13 @@ export function clearAllRulings() {
 }
 
 function formatShortDate(ts) {
-  return new Date(ts).toLocaleDateString('en-US', {
-    month: 'short', day: 'numeric',
-  });
+  return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function escHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str || '';
+  return div.innerHTML;
 }
 
 export function renderHistoryPanel(onSelect) {
@@ -46,24 +50,23 @@ export function renderHistoryPanel(onSelect) {
   footer.style.display = 'block';
 
   list.innerHTML = rulings.map((r, i) => `
-    <div class="history-item" data-index="${i}">
-      <button class="history-delete" data-delete="${i}" title="Delete">&times;</button>
+    <div class="history-item" data-index="${i}" style="--i:${i}">
+      <button class="history-delete" data-delete="${i}" title="Delete" type="button">&times;</button>
       <div class="history-item-title">${escHtml(r.caseTitle)}</div>
       <div class="history-item-meta">
         <span class="history-item-verdict">${escHtml(r.verdictText || '').substring(0, 60)}</span>
         <span class="history-item-date">${formatShortDate(r.timestamp)}</span>
       </div>
       <div class="history-item-badges">
-        <span class="badge badge-severity ${r.severityLevel}" style="font-size:0.6rem;padding:2px 8px;">${r.severityLevel}</span>
+        <span class="badge badge-severity ${escHtml(r.severityLevel)}" style="font-size:0.62rem;padding:2px 9px;">${escHtml(r.severityLevel)}</span>
       </div>
     </div>
   `).join('');
 
-  // Click handlers
   list.querySelectorAll('.history-item').forEach(el => {
     el.addEventListener('click', e => {
       if (e.target.closest('.history-delete')) return;
-      const idx = parseInt(el.dataset.index);
+      const idx = parseInt(el.dataset.index, 10);
       onSelect(rulings[idx]);
     });
   });
@@ -71,15 +74,9 @@ export function renderHistoryPanel(onSelect) {
   list.querySelectorAll('.history-delete').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
-      const idx = parseInt(btn.dataset.delete);
+      const idx = parseInt(btn.dataset.delete, 10);
       deleteRuling(idx);
       renderHistoryPanel(onSelect);
     });
   });
-}
-
-function escHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str || '';
-  return div.innerHTML;
 }

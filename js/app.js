@@ -4,8 +4,25 @@ import { renderVerdict } from './ruling.js';
 import { initShare, copyRulingText } from './share.js';
 import { saveRuling, renderHistoryPanel, clearAllRulings } from './history.js';
 
+const MIN_DELIBERATION_MS = 1300;
+const STATUS_LINES = [
+  'Reviewing the arguments…',
+  'Weighing the evidence…',
+  'Consulting precedent…',
+  'Preparing the ruling…',
+];
+
 let currentRuling = null;
 let currentArgument = '';
+let statusTimer = null;
+
+function prefersReducedMotion() {
+  return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 // === Init ===
 document.addEventListener('DOMContentLoaded', () => {
@@ -14,35 +31,32 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function bindEvents() {
-  // Form submit
   document.getElementById('judge-form').addEventListener('submit', handleSubmit);
+  document.getElementById('submit-btn').addEventListener('pointerdown', spawnRipple);
 
-  // Ctrl+Enter shortcut
   document.getElementById('argument-input').addEventListener('keydown', e => {
     if (e.ctrlKey && e.key === 'Enter') {
       e.preventDefault();
-      document.getElementById('judge-form').dispatchEvent(new Event('submit'));
+      document.getElementById('judge-form').dispatchEvent(new Event('submit', { cancelable: true }));
     }
   });
 
-  // Example chips
   document.querySelectorAll('.example-chip').forEach(chip => {
     chip.addEventListener('click', () => {
-      document.getElementById('argument-input').value = chip.dataset.text;
-      document.getElementById('argument-input').focus();
+      const input = document.getElementById('argument-input');
+      input.value = chip.dataset.text;
+      input.focus();
     });
   });
 
-  // Action buttons
   document.getElementById('btn-copy').addEventListener('click', () => {
     if (currentRuling) copyRulingText(currentRuling);
   });
 
   document.getElementById('btn-appeal').addEventListener('click', handleAppeal);
-  document.getElementById('btn-new').addEventListener('click', showInputView);
-  document.getElementById('top-new-case').addEventListener('click', showInputView);
+  document.getElementById('btn-new').addEventListener('click', () => switchState('intake'));
+  document.getElementById('top-new-case').addEventListener('click', () => switchState('intake'));
 
-  // History
   document.getElementById('history-link').addEventListener('click', openHistory);
   document.getElementById('top-history').addEventListener('click', openHistory);
   document.getElementById('history-close-btn').addEventListener('click', closeHistory);
@@ -53,7 +67,7 @@ function bindEvents() {
   });
 }
 
-// === Form Submit ===
+// === Form submit ===
 async function handleSubmit(e) {
   e.preventDefault();
   const input = document.getElementById('argument-input');
@@ -66,66 +80,126 @@ async function handleSubmit(e) {
 
   currentArgument = text;
   hideError();
-  setLoading(true);
-
-  try {
-    const raw = await judgeArgument(text);
-    const ruling = parseRuling(raw);
-    currentRuling = ruling;
-    saveRuling(ruling);
-    showVerdictView(ruling);
-  } catch (err) {
-    showError(err.message || 'Something went wrong. Please try again.');
-  } finally {
-    setLoading(false);
-  }
+  await runJudgment(text);
 }
 
-// === Appeal ===
 async function handleAppeal() {
   if (!currentArgument) return;
+  await runJudgment(currentArgument, { isAppeal: true });
+}
 
-  showToast('Case appealed \u2014 new ruling incoming...');
-  document.getElementById('btn-appeal').disabled = true;
+async function runJudgment(text, { isAppeal = false } = {}) {
+  switchState('deliberation');
+  startStatusCycle();
 
   try {
-    const raw = await judgeArgument(currentArgument);
+    const [raw] = await Promise.all([
+      judgeArgument(text),
+      delay(MIN_DELIBERATION_MS),
+    ]);
     const ruling = parseRuling(raw);
     currentRuling = ruling;
     saveRuling(ruling);
     renderVerdict(ruling);
-    showToast('New ruling delivered!');
+    stopStatusCycle();
+    switchState('verdict', { dramatic: true });
+    if (isAppeal) showToast('A fresh ruling has been handed down.');
   } catch (err) {
-    showToast('Appeal failed: ' + (err.message || 'Try again.'));
-  } finally {
-    document.getElementById('btn-appeal').disabled = false;
+    stopStatusCycle();
+    switchState('intake');
+    showError(err.message || 'Something went wrong. Please try again.');
+    if (isAppeal) showToast('Appeal failed: ' + (err.message || 'Try again.'));
   }
 }
 
-// === View Management ===
-function showInputView() {
-  document.getElementById('input-view').style.display = 'flex';
-  document.getElementById('verdict-view').classList.remove('active');
-  document.getElementById('argument-input').focus();
+function startStatusCycle() {
+  const el = document.getElementById('deliberation-status');
+  let i = 0;
+  el.textContent = STATUS_LINES[0];
+  function tick() {
+    i = (i + 1) % STATUS_LINES.length;
+    el.textContent = STATUS_LINES[i];
+    statusTimer = setTimeout(tick, 1500);
+  }
+  statusTimer = setTimeout(tick, 1500);
 }
 
-function showVerdictView(ruling) {
-  const inputView = document.getElementById('input-view');
-  const verdictView = document.getElementById('verdict-view');
-  const overlay = document.getElementById('verdict-overlay');
+function stopStatusCycle() {
+  if (statusTimer) clearTimeout(statusTimer);
+  statusTimer = null;
+}
 
-  inputView.style.display = 'none';
+// === State machine: intake / deliberation / verdict ===
+function getStateEl(name) {
+  return document.getElementById(`state-${name}`);
+}
 
-  // Dramatic entrance
+function switchState(name, { dramatic = false } = {}) {
+  const stage = document.getElementById('stage');
+  const current = document.querySelector('.state.active');
+  const next = getStateEl(name);
+  if (!next || current === next) return;
+
+  function finalize() {
+    if (current) {
+      current.classList.remove('active', 'entering', 'exiting');
+      current.style.display = 'none';
+    }
+    next.style.display = 'flex';
+    next.classList.add('active');
+    stage.dataset.state = name;
+
+    if (!prefersReducedMotion()) {
+      next.classList.add('entering');
+      const handler = ev => {
+        if (ev.target !== next || ev.animationName !== 'stateFadeIn') return;
+        next.classList.remove('entering');
+        next.removeEventListener('animationend', handler);
+      };
+      next.addEventListener('animationend', handler);
+    }
+
+    window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+    if (name === 'intake') {
+      const input = document.getElementById('argument-input');
+      if (input) input.focus();
+    }
+  }
+
+  if (dramatic) {
+    playGavelOverlay(finalize);
+    return;
+  }
+
+  if (current && !prefersReducedMotion()) {
+    current.classList.add('exiting');
+    const handler = ev => {
+      if (ev.target !== current || ev.animationName !== 'stateFadeOut') return;
+      current.removeEventListener('animationend', handler);
+      finalize();
+    };
+    current.addEventListener('animationend', handler);
+  } else {
+    finalize();
+  }
+}
+
+function playGavelOverlay(cb) {
+  const overlay = document.getElementById('gavel-overlay');
+  if (prefersReducedMotion()) {
+    cb();
+    return;
+  }
   overlay.classList.add('active');
-
-  setTimeout(() => {
+  // Swap the underlying state while the overlay is fully opaque (roughly its
+  // midpoint), so the verdict is already revealed the instant the flash clears.
+  setTimeout(cb, 470);
+  const handler = ev => {
+    if (ev.target !== overlay || ev.animationName !== 'overlayFade') return;
     overlay.classList.remove('active');
-    verdictView.classList.add('active');
-    renderVerdict(ruling);
-    verdictView.scrollTo({ top: 0 });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, 1200);
+    overlay.removeEventListener('animationend', handler);
+  };
+  overlay.addEventListener('animationend', handler);
 }
 
 // === History ===
@@ -144,29 +218,28 @@ function loadHistoryRuling(ruling) {
   closeHistory();
   currentRuling = ruling;
   currentArgument = '';
-
-  document.getElementById('input-view').style.display = 'none';
-  const verdictView = document.getElementById('verdict-view');
-  verdictView.classList.add('active');
   renderVerdict(ruling);
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  switchState('verdict');
 }
 
-// === UI Helpers ===
-function setLoading(loading) {
-  const btn = document.getElementById('submit-btn');
-  const loadingEl = document.getElementById('loading-state');
+// === Ripple micro-interaction ===
+function spawnRipple(e) {
+  if (prefersReducedMotion()) return;
 
-  btn.disabled = loading;
-  btn.querySelector('.btn-text').textContent = loading ? 'Deliberating...' : 'Judge This';
+  const btn = e.currentTarget;
+  const rect = btn.getBoundingClientRect();
+  const size = Math.max(rect.width, rect.height) * 1.4;
+  const ripple = document.createElement('span');
+  ripple.className = 'ripple';
+  ripple.style.width = ripple.style.height = size + 'px';
+  ripple.style.left = (e.clientX - rect.left - size / 2) + 'px';
+  ripple.style.top = (e.clientY - rect.top - size / 2) + 'px';
 
-  if (loading) {
-    loadingEl.classList.add('active');
-  } else {
-    loadingEl.classList.remove('active');
-  }
+  btn.appendChild(ripple);
+  ripple.addEventListener('animationend', () => ripple.remove());
 }
 
+// === UI helpers ===
 function showError(msg) {
   const el = document.getElementById('error-message');
   el.textContent = msg;
@@ -177,7 +250,6 @@ function hideError() {
   document.getElementById('error-message').classList.remove('active');
 }
 
-// === Toast (exported) ===
 export function showToast(message) {
   const container = document.getElementById('toast-container');
   const toast = document.createElement('div');

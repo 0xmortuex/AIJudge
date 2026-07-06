@@ -14,130 +14,144 @@
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Lora:ital,wght@0,400;0,600;1,400&family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Lora:ital,wght@0,400;0,600;1,400;1,600&family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
 
   <!-- Styles -->
   <link rel="stylesheet" href="css/main.css">
   <link rel="stylesheet" href="css/ruling.css">
   <link rel="stylesheet" href="css/share.css">
 
-  <!-- html2canvas -->
+  <!-- html2canvas (used only for the "Share Ruling" certificate export) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
 </head>
 <body>
 
-  <!-- Toast Container -->
-  <div id="toast-container" class="toast-container"></div>
+  <!-- Toasts -->
+  <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
-  <!-- Dramatic Entrance Overlay -->
-  <div id="verdict-overlay" class="verdict-overlay">
-    <div class="order-text">Order in the Court</div>
+  <!-- Gavel-strike reveal, bridges DELIBERATION -> VERDICT -->
+  <div id="gavel-overlay" class="gavel-overlay">
+    <div class="impact-ring"></div>
+    <div class="gavel-glyph">&#9878;&#65039;</div>
+    <div class="gavel-order-text">The Court Has Ruled</div>
   </div>
 
-  <!-- === INPUT VIEW === -->
-  <div id="input-view" class="input-view">
-    <div class="logo">
-      <img src="assets/favicon.svg" alt="AIJudge" class="logo-icon">
-      <h1>AIJudge</h1>
-    </div>
-    <p class="tagline">The court will now hear your case.</p>
+  <div class="stage" id="stage" data-state="intake">
 
-    <form id="judge-form" class="argument-form">
-      <div class="textarea-wrapper">
-        <textarea
-          id="argument-input"
-          class="argument-input"
-          placeholder="Describe the argument...&#10;&#10;Tip: Include both sides for a fair ruling. Example:&#10;'My roommate says I should do the dishes every day because I cook more, but I think we should alternate regardless of who cooks.'"
-          required
-          minlength="10"
-        ></textarea>
+    <!-- ============ INTAKE ============ -->
+    <section id="state-intake" class="state state-intake active">
+      <div class="intake-inner">
+        <div class="brand">
+          <img src="assets/favicon.svg" alt="" class="brand-icon">
+          <h1>AIJudge</h1>
+        </div>
+        <p class="tagline">The court will now hear your case.</p>
+
+        <form id="judge-form" class="argument-form">
+          <div class="textarea-wrapper">
+            <textarea
+              id="argument-input"
+              class="argument-input"
+              placeholder="Describe the argument...&#10;&#10;Tip: Include both sides for a fair ruling. Example:&#10;'My roommate says I should do the dishes every day because I cook more, but I think we should alternate regardless of who cooks.'"
+              required
+              minlength="10"
+              aria-label="Describe your dispute"
+            ></textarea>
+          </div>
+
+          <p class="examples-label">Try an example</p>
+          <div class="example-chips">
+            <button type="button" class="example-chip" data-text="My friend spoiled a movie I was about to watch and says it's my fault for not seeing it sooner.">Movie spoiler</button>
+            <button type="button" class="example-chip" data-text="My roommate eats my labeled food from the fridge and says it's fine because we share the space.">Fridge thief</button>
+            <button type="button" class="example-chip" data-text="My partner says I spend too much time gaming, but I only play after all chores are done.">Gaming time</button>
+            <button type="button" class="example-chip" data-text="My coworker takes credit for my ideas in meetings and claims they 'built on' my thoughts.">Idea thief</button>
+            <button type="button" class="example-chip" data-text="My friend always cancels plans at the last minute and gets offended when I stop inviting them.">Flaky friend</button>
+            <button type="button" class="example-chip" data-text="My sibling borrowed $200 six months ago, won't pay it back, and says family shouldn't keep score.">Money owed</button>
+          </div>
+
+          <button type="submit" id="submit-btn" class="submit-btn">
+            <span class="btn-text">Submit to the Court</span>
+            <span aria-hidden="true">&#9878;&#65039;</span>
+            <span class="shortcut">Ctrl+Enter</span>
+          </button>
+
+          <div id="error-message" class="error-message" role="alert"></div>
+        </form>
+
+        <button id="history-link" class="history-link" type="button">View Past Rulings</button>
+      </div>
+    </section>
+
+    <!-- ============ DELIBERATION ============ -->
+    <section id="state-deliberation" class="state state-deliberation">
+      <div class="seal-wrap">
+        <div class="seal-ring"></div>
+        <div class="seal-ring slow"></div>
+        <div class="seal-glyph">&#9878;&#65039;</div>
+      </div>
+      <h2 class="deliberation-title">Court Is In Session</h2>
+      <p class="deliberation-status" id="deliberation-status">Reviewing the arguments&hellip;</p>
+      <div class="deliberation-bar"><div class="deliberation-bar-fill"></div></div>
+    </section>
+
+    <!-- ============ VERDICT ============ -->
+    <section id="state-verdict" class="state state-verdict">
+      <div class="top-bar">
+        <div class="top-bar-logo">
+          <img src="assets/favicon.svg" alt="">
+          <span>AIJudge</span>
+        </div>
+        <div class="top-bar-actions">
+          <button id="top-new-case" class="btn-secondary" type="button">&#9878; New Case</button>
+          <button id="top-history" class="btn-secondary" type="button">&#128220; Past Rulings</button>
+        </div>
       </div>
 
-      <p class="examples-label">Try an example</p>
-      <div class="example-chips">
-        <button type="button" class="example-chip" data-text="My friend spoiled a movie I was about to watch and says it's my fault for not seeing it sooner.">Movie spoiler</button>
-        <button type="button" class="example-chip" data-text="My roommate eats my labeled food from the fridge and says it's fine because we share the space.">Fridge thief</button>
-        <button type="button" class="example-chip" data-text="My partner says I spend too much time gaming, but I only play after all chores are done.">Gaming time</button>
-        <button type="button" class="example-chip" data-text="My coworker takes credit for my ideas in meetings and claims they 'built on' my thoughts.">Idea thief</button>
-        <button type="button" class="example-chip" data-text="My friend always cancels plans at the last minute and gets offended when I stop inviting them.">Flaky friend</button>
-        <button type="button" class="example-chip" data-text="My sibling borrowed $200 six months ago, won't pay it back, and says family shouldn't keep score.">Money owed</button>
+      <div id="verdict-card" class="verdict-card"></div>
+
+      <div class="action-buttons">
+        <button id="btn-share" class="btn-action btn-share" type="button">&#128248; Share Ruling</button>
+        <button id="btn-appeal" class="btn-action btn-appeal" type="button">&#128260; Appeal</button>
+        <button id="btn-copy" class="btn-action btn-copy" type="button">&#128203; Copy Text</button>
+        <button id="btn-new" class="btn-action btn-new" type="button">&#9878; New Case</button>
       </div>
-
-      <button type="submit" id="submit-btn" class="submit-btn">
-        <span class="btn-text">Judge This</span>
-        <span>&#9878;&#65039;</span>
-        <span class="shortcut">Ctrl+Enter</span>
-      </button>
-
-      <div id="error-message" class="error-message"></div>
-
-      <div id="loading-state" class="loading-state">
-        <span class="gavel-loading">&#9878;</span>
-        <span class="loading-text">The court is deliberating...</span>
-        <span class="loading-time">~10 seconds</span>
-      </div>
-    </form>
-
-    <button id="history-link" class="history-link">&#128220; View Past Rulings</button>
+    </section>
   </div>
 
-  <!-- === VERDICT VIEW === -->
-  <div id="verdict-view" class="verdict-view">
-    <div class="top-bar">
-      <div class="top-bar-logo">
-        <img src="assets/favicon.svg" alt="">
-        <span>AIJudge</span>
-      </div>
-      <div class="top-bar-actions">
-        <button id="top-new-case" class="btn-secondary">&#9878; New Case</button>
-        <button id="top-history" class="btn-secondary">&#128220; Past Rulings</button>
-      </div>
-    </div>
-
-    <div id="verdict-card" class="verdict-card"></div>
-
-    <div class="action-buttons">
-      <button id="btn-share" class="btn-action btn-share">&#128248; Share Ruling</button>
-      <button id="btn-copy" class="btn-action btn-copy">&#128203; Copy Ruling</button>
-      <button id="btn-appeal" class="btn-action btn-appeal">&#128260; Appeal</button>
-      <button id="btn-new" class="btn-action btn-new">&#9878; New Case</button>
-    </div>
-  </div>
-
-  <!-- === SHARE OVERLAY === -->
+  <!-- ============ SHARE MODAL ============ -->
   <div id="share-overlay" class="share-overlay">
     <div class="share-modal">
       <div class="share-modal-header">
-        <span class="share-modal-title">&#128248; Share Ruling</span>
-        <button id="share-close" class="share-close-btn">&times;</button>
+        <span class="share-modal-title">&#128248; Certificate of Ruling</span>
+        <button id="share-close" class="share-close-btn" type="button">&times;</button>
       </div>
       <div class="share-preview">
-        <img id="share-preview-img" src="" alt="Ruling preview">
+        <img id="share-preview-img" src="" alt="Ruling certificate preview" style="display:none;">
+        <div id="share-loading" class="share-loading">Preparing certificate&hellip;</div>
       </div>
       <div class="share-actions">
-        <button id="btn-download-img" class="btn-action btn-download">&#128229; Download Image</button>
-        <button id="btn-copy-img" class="btn-action btn-clipboard">&#128203; Copy Image</button>
+        <button id="btn-download-img" class="btn-action btn-download" type="button">&#128229; Download</button>
+        <button id="btn-copy-img" class="btn-action btn-clipboard" type="button">&#128203; Copy Image</button>
       </div>
     </div>
   </div>
 
-  <!-- Hidden render container for html2canvas -->
+  <!-- Off-screen render target used only by html2canvas -->
   <div id="share-render-container"></div>
 
-  <!-- === HISTORY PANEL === -->
+  <!-- ============ HISTORY DRAWER ============ -->
   <div id="history-backdrop" class="history-backdrop"></div>
   <div id="history-panel" class="history-panel">
     <div class="history-header">
       <span class="history-title">&#128220; Past Rulings</span>
-      <button id="history-close-btn" class="history-close">&times;</button>
+      <button id="history-close-btn" class="history-close" type="button">&times;</button>
     </div>
     <div id="history-list" class="history-list"></div>
     <div id="history-footer" class="history-footer" style="display:none;">
-      <button id="btn-clear-all" class="btn-clear-all">Clear All Rulings</button>
+      <button id="btn-clear-all" class="btn-clear-all" type="button">Clear All Rulings</button>
     </div>
   </div>
 
-  <!-- App Script -->
   <script type="module" src="js/app.js"></script>
 </body>
 </html>

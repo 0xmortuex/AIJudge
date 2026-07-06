@@ -16,7 +16,11 @@ export function parseRuling(raw) {
     // Try to extract JSON from surrounding text
     const match = text.match(/\{[\s\S]*\}/);
     if (match) {
-      data = JSON.parse(match[0]);
+      try {
+        data = JSON.parse(match[0]);
+      } catch {
+        throw new Error('The court\'s response was malformed. Please try again.');
+      }
     } else {
       throw new Error('Could not parse ruling');
     }

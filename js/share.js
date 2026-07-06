@@ -1,4 +1,5 @@
 import { showToast } from './app.js';
+import { finishRulingAnimations } from './ruling.js';
 
 export function initShare() {
   document.getElementById('btn-share').addEventListener('click', generateShareImage);
@@ -6,7 +7,6 @@ export function initShare() {
   document.getElementById('btn-download-img').addEventListener('click', downloadImage);
   document.getElementById('btn-copy-img').addEventListener('click', copyImage);
 
-  // Close on backdrop click
   document.getElementById('share-overlay').addEventListener('click', e => {
     if (e.target.id === 'share-overlay') closeShareOverlay();
   });
@@ -15,43 +15,72 @@ export function initShare() {
 let currentBlob = null;
 let currentFilename = '';
 
+// Bakes every animated element in `clone` down to its final visual state so
+// the exported PNG shows fully-filled scales/bars/gauges, never an empty or
+// mid-tween frame. SVG elements are skipped by the blanket reset because an
+// inline `style.transform` on an SVG node overrides its `transform`
+// *attribute* (the scales' rotate(...) and gauge's arc live there) --
+// wiping it would flatten the scales back to level and blank the gauge arc.
+function bakeInFinalState(clone) {
+  clone.querySelectorAll('*').forEach(el => {
+    if (el.closest('svg')) return;
+    el.style.animation = 'none';
+    el.style.opacity = '1';
+    el.style.transform = 'none';
+  });
+
+  // Party strength bars: driven by transform:scaleX via data-width.
+  clone.querySelectorAll('[data-width]').forEach(el => {
+    el.style.transformOrigin = 'left center';
+    el.style.transform = `scaleX(${el.dataset.width / 100})`;
+  });
+
+  // Severity segments: driven by the .filled class + a CSS transition, which
+  // the blanket reset above just overrode with an inline `transform: none`.
+  clone.querySelectorAll('.severity-seg').forEach(el => {
+    el.style.transformOrigin = 'left center';
+    el.style.transform = el.classList.contains('filled') ? 'scaleX(1)' : 'scaleX(0)';
+  });
+}
+
 async function generateShareImage() {
   const card = document.getElementById('verdict-card');
   if (!card) return;
 
-  showToast('Generating ruling image...');
+  // Force the scales/gauge/bars to their settled final values before we
+  // snapshot -- if the user shares immediately after the reveal, animations
+  // may still be mid-flight.
+  finishRulingAnimations();
+
+  const previewImg = document.getElementById('share-preview-img');
+  const loadingEl = document.getElementById('share-loading');
+  previewImg.style.display = 'none';
+  loadingEl.style.display = 'block';
+  loadingEl.textContent = 'Preparing certificate…';
+  document.getElementById('share-overlay').classList.add('active');
 
   try {
-    // Create a container for rendering
     const container = document.getElementById('share-render-container');
     const clone = card.cloneNode(true);
-    clone.style.width = '600px';
-    clone.style.background = '#10121a';
-    clone.style.border = '2px solid #d4a017';
-    clone.style.borderRadius = '12px';
-    clone.style.overflow = 'hidden';
+    clone.removeAttribute('id');
+    clone.classList.add('certificate');
 
-    // Reset animations on clone
-    clone.querySelectorAll('*').forEach(el => {
-      el.style.animation = 'none';
-      el.style.opacity = '1';
-      el.style.transform = 'none';
-    });
+    const brand = document.createElement('div');
+    brand.className = 'cert-brand';
+    brand.textContent = 'Certificate of Ruling — AIJudge';
+    clone.insertBefore(brand, clone.firstChild);
 
-    // Set fill widths directly
-    clone.querySelectorAll('[data-width]').forEach(el => {
-      el.style.width = el.dataset.width + '%';
-    });
+    bakeInFinalState(clone);
 
     container.innerHTML = '';
     container.appendChild(clone);
 
     const canvas = await html2canvas(clone, {
-      backgroundColor: '#10121a',
+      backgroundColor: '#f3ecd9',
       scale: 2,
       useCORS: true,
       logging: false,
-      width: 600,
+      width: clone.offsetWidth,
     });
 
     container.innerHTML = '';
@@ -59,19 +88,17 @@ async function generateShareImage() {
     const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
     currentBlob = blob;
 
-    // Extract case number for filename
     const caseNum = card.querySelector('.case-number');
     const num = caseNum ? caseNum.textContent.replace('Case No. ', '').trim() : 'ruling';
     currentFilename = `aijudge-ruling-${num}.png`;
 
-    // Show preview
-    const previewImg = document.getElementById('share-preview-img');
     previewImg.src = URL.createObjectURL(blob);
     previewImg.onload = () => URL.revokeObjectURL(previewImg.src);
-
-    document.getElementById('share-overlay').classList.add('active');
+    previewImg.style.display = 'block';
+    loadingEl.style.display = 'none';
   } catch (err) {
     console.error('Share generation failed:', err);
+    loadingEl.textContent = 'Failed to generate the certificate. Try again.';
     showToast('Failed to generate image. Try again.');
   }
 }
@@ -120,8 +147,8 @@ export function copyRulingText(data) {
     `${data.partyB.name}: ${data.partyB.position} (Strength: ${data.partyB.strengthOfCase}/10)`,
     ``,
     `REASONING: ${data.reasoning}`,
-    data.roast ? `\nTHE COURT OBSERVES: ${data.roast}` : '',
-    data.advice ? `\nRECOMMENDATION: ${data.advice}` : '',
+    data.roast ? `\nNOTE FROM THE BENCH: ${data.roast}` : '',
+    data.advice ? `\nADVICE GOING FORWARD: ${data.advice}` : '',
     ``,
     `Ruled by AIJudge - https://0xmortuex.github.io/AIJudge/`,
   ].filter(Boolean).join('\n');
