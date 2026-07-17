@@ -110,7 +110,24 @@ async function handleSubmit(e) {
 }
 
 // === Addendum modal: appeal details & answering the court ===
+
+// Rulings saved before case files were persisted have no `argument`. Rebuild
+// enough of the case from the court record itself so they can still be
+// appealed or answered.
+function reconstructCaseFile(r) {
+  if (!r || !r.partyA || !r.partyB) return '';
+  return [
+    '[CASE REOPENED FROM THE COURT RECORD]',
+    `Case: ${r.caseTitle}`,
+    `${r.partyA.name}'s position: ${r.partyA.position}`,
+    `${r.partyB.name}'s position: ${r.partyB.position}`,
+    `The court previously ruled: ${r.verdictText}`,
+    `Previous reasoning: ${r.reasoning}`,
+  ].join('\n');
+}
+
 function openAddendum(mode) {
+  if (!currentArgument) currentArgument = reconstructCaseFile(currentRuling);
   if (!currentArgument) {
     showToast('This ruling has no case file on record to reopen.');
     return;
