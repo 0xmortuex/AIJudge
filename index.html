@@ -21,8 +21,10 @@
   <link rel="stylesheet" href="css/ruling.css">
   <link rel="stylesheet" href="css/share.css">
 
-  <!-- html2canvas (used only for the "Share Ruling" certificate export) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
+  <!-- html2canvas (used only for the "Share Ruling" certificate export).
+       Vendored locally: loading it from a CDN meant the certificate capture
+       could hang or fail entirely whenever the CDN was slow or unreachable. -->
+  <script src="js/vendor/html2canvas.min.js" defer></script>
 </head>
 <body>
 
