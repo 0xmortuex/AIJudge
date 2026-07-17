@@ -43,6 +43,19 @@ function bakeInFinalState(clone) {
   });
 }
 
+// html2canvas clones the document into an iframe and waits for every
+// stylesheet/font in it to load again. On a slow or flaky connection that
+// wait can never settle, so cap it and surface a retryable error instead
+// of an infinite "Preparing certificate…".
+const CAPTURE_TIMEOUT_MS = 20000;
+
+function withTimeout(promise, ms) {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error('Certificate capture timed out')), ms);
+    promise.then(v => { clearTimeout(t); resolve(v); }, e => { clearTimeout(t); reject(e); });
+  });
+}
+
 async function generateShareImage() {
   const card = document.getElementById('verdict-card');
   if (!card) return;
@@ -59,7 +72,18 @@ async function generateShareImage() {
   loadingEl.textContent = 'Preparing certificate…';
   document.getElementById('share-overlay').classList.add('active');
 
+  if (typeof html2canvas === 'undefined') {
+    loadingEl.textContent = 'The image engine is still loading. Check your connection and try again.';
+    return;
+  }
+
   try {
+    // Let webfonts settle first so the capture's iframe hits warm caches
+    // (and so the certificate renders with the right typefaces).
+    if (document.fonts && document.fonts.ready) {
+      await Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 3000))]);
+    }
+
     const container = document.getElementById('share-render-container');
     const clone = card.cloneNode(true);
     clone.removeAttribute('id');
@@ -78,13 +102,13 @@ async function generateShareImage() {
     container.innerHTML = '';
     container.appendChild(clone);
 
-    const canvas = await html2canvas(clone, {
+    const canvas = await withTimeout(html2canvas(clone, {
       backgroundColor: '#f3ecd9',
       scale: 2,
       useCORS: true,
       logging: false,
       width: clone.offsetWidth,
-    });
+    }), CAPTURE_TIMEOUT_MS);
 
     container.innerHTML = '';
 
@@ -101,7 +125,8 @@ async function generateShareImage() {
     loadingEl.style.display = 'none';
   } catch (err) {
     console.error('Share generation failed:', err);
-    loadingEl.textContent = 'Failed to generate the certificate. Try again.';
+    document.getElementById('share-render-container').innerHTML = '';
+    loadingEl.textContent = 'Failed to generate the certificate. Close and try again.';
     showToast('Failed to generate image. Try again.');
   }
 }
