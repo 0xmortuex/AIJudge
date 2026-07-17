@@ -525,6 +525,13 @@ a { color: var(--gold-400); }
   gap: 0.7rem;
   justify-content: center;
   margin-top: 1.8rem;
+  /* Pin the actions to the viewport while the (long) ruling scrolls, so
+     Share/Appeal are discoverable without scrolling to the very bottom. */
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  padding: 1.4rem 0 1rem;
+  background: linear-gradient(180deg, rgba(5, 6, 10, 0), rgba(5, 6, 10, 0.94) 40%);
 }
 .btn-action {
   flex: 1 1 150px;
