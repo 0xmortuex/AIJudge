@@ -3,6 +3,7 @@ import { finishRulingAnimations } from './ruling.js';
 
 export function initShare() {
   document.getElementById('btn-share').addEventListener('click', generateShareImage);
+  document.getElementById('top-share').addEventListener('click', generateShareImage);
   document.getElementById('share-close').addEventListener('click', closeShareOverlay);
   document.getElementById('btn-download-img').addEventListener('click', downloadImage);
   document.getElementById('btn-copy-img').addEventListener('click', copyImage);
