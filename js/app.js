@@ -11,10 +11,17 @@ const STATUS_LINES = [
   'Consulting precedent…',
   'Preparing the ruling…',
 ];
+const REEVAL_STATUS_LINES = [
+  'The court takes a brief recess…',
+  'Re-reading the case file…',
+  'Weighing the new testimony…',
+  'Revising the ruling…',
+];
 
 let currentRuling = null;
 let currentArgument = '';
 let statusTimer = null;
+let addendumMode = 'appeal';
 
 function prefersReducedMotion() {
   return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -53,9 +60,28 @@ function bindEvents() {
     if (currentRuling) copyRulingText(currentRuling);
   });
 
-  document.getElementById('btn-appeal').addEventListener('click', handleAppeal);
+  document.getElementById('btn-appeal').addEventListener('click', () => openAddendum('appeal'));
   document.getElementById('btn-new').addEventListener('click', () => switchState('intake'));
   document.getElementById('top-new-case').addEventListener('click', () => switchState('intake'));
+
+  // The "Answer the Court" button lives inside the re-rendered verdict card,
+  // so listen on the card itself.
+  document.getElementById('verdict-card').addEventListener('click', e => {
+    if (e.target.closest('.btn-answer-question')) openAddendum('answer');
+  });
+
+  document.getElementById('addendum-close').addEventListener('click', closeAddendum);
+  document.getElementById('addendum-cancel').addEventListener('click', closeAddendum);
+  document.getElementById('addendum-submit').addEventListener('click', submitAddendum);
+  document.getElementById('addendum-overlay').addEventListener('click', e => {
+    if (e.target.id === 'addendum-overlay') closeAddendum();
+  });
+  document.getElementById('addendum-input').addEventListener('keydown', e => {
+    if (e.ctrlKey && e.key === 'Enter') {
+      e.preventDefault();
+      submitAddendum();
+    }
+  });
 
   document.getElementById('history-link').addEventListener('click', openHistory);
   document.getElementById('top-history').addEventListener('click', openHistory);
@@ -83,14 +109,90 @@ async function handleSubmit(e) {
   await runJudgment(text);
 }
 
-async function handleAppeal() {
-  if (!currentArgument) return;
-  await runJudgment(currentArgument, { isAppeal: true });
+// === Addendum modal: appeal details & answering the court ===
+
+// Rulings saved before case files were persisted have no `argument`. Rebuild
+// enough of the case from the court record itself so they can still be
+// appealed or answered.
+function reconstructCaseFile(r) {
+  if (!r || !r.partyA || !r.partyB) return '';
+  return [
+    '[CASE REOPENED FROM THE COURT RECORD]',
+    `Case: ${r.caseTitle}`,
+    `${r.partyA.name}'s position: ${r.partyA.position}`,
+    `${r.partyB.name}'s position: ${r.partyB.position}`,
+    `The court previously ruled: ${r.verdictText}`,
+    `Previous reasoning: ${r.reasoning}`,
+  ].join('\n');
 }
 
-async function runJudgment(text, { isAppeal = false } = {}) {
+function openAddendum(mode) {
+  if (!currentArgument) currentArgument = reconstructCaseFile(currentRuling);
+  if (!currentArgument) {
+    showToast('This ruling has no case file on record to reopen.');
+    return;
+  }
+
+  addendumMode = mode;
+  const title = document.getElementById('addendum-title');
+  const hint = document.getElementById('addendum-hint');
+  const quote = document.getElementById('addendum-question');
+  const input = document.getElementById('addendum-input');
+  const submit = document.getElementById('addendum-submit');
+
+  if (mode === 'answer') {
+    title.innerHTML = '&#9993;&#65039; Answer the Court';
+    hint.textContent = 'The court needs clarification before it can rule with confidence. Your answer will be entered into the record and the case re-evaluated.';
+    quote.textContent = currentRuling && currentRuling.clarifyingQuestion ? currentRuling.clarifyingQuestion : '';
+    quote.style.display = quote.textContent ? 'block' : 'none';
+    input.placeholder = 'Enter your answer to the court’s question…';
+    submit.innerHTML = '&#9993;&#65039; Submit Answer';
+  } else {
+    title.innerHTML = '&#128260; File an Appeal';
+    hint.textContent = 'Present anything the court may have missed — additional arguments, context, or the other side’s perspective. Leave it empty to simply request a fresh ruling.';
+    quote.style.display = 'none';
+    input.placeholder = 'Additional arguments or details for the court… (optional)';
+    submit.innerHTML = '&#128260; Submit Appeal';
+  }
+
+  input.value = '';
+  hideAddendumError();
+  document.getElementById('addendum-overlay').classList.add('active');
+  input.focus();
+}
+
+function closeAddendum() {
+  document.getElementById('addendum-overlay').classList.remove('active');
+}
+
+async function submitAddendum() {
+  const details = document.getElementById('addendum-input').value.trim();
+
+  if (addendumMode === 'answer') {
+    if (details.length < 2) {
+      showAddendumError('Please enter an answer for the court.');
+      return;
+    }
+    const question = (currentRuling && currentRuling.clarifyingQuestion) || '';
+    closeAddendum();
+    const composed = currentArgument
+      + `\n\n[THE COURT ASKED FOR CLARIFICATION: "${question}"]`
+      + `\n[ANSWER FROM THE PARTIES]\n${details}`;
+    await runJudgment(composed, { mode: 'answer' });
+    return;
+  }
+
+  closeAddendum();
+  const composed = details
+    ? currentArgument + `\n\n[APPEAL FILED — ADDITIONAL ARGUMENTS FOR THE COURT TO CONSIDER]\n${details}`
+    : currentArgument;
+  await runJudgment(composed, { mode: 'appeal' });
+}
+
+async function runJudgment(text, { mode = 'new' } = {}) {
+  const isReevaluation = mode === 'appeal' || mode === 'answer';
   switchState('deliberation');
-  startStatusCycle();
+  startStatusCycle(isReevaluation ? REEVAL_STATUS_LINES : STATUS_LINES);
 
   try {
     const [raw] = await Promise.all([
@@ -98,27 +200,32 @@ async function runJudgment(text, { isAppeal = false } = {}) {
       delay(MIN_DELIBERATION_MS),
     ]);
     const ruling = parseRuling(raw);
+    // Keep the full case file with the ruling so appeals and answers still
+    // work after a reload or when reopened from history.
+    ruling.argument = text;
     currentRuling = ruling;
+    currentArgument = text;
     saveRuling(ruling);
     renderVerdict(ruling);
     stopStatusCycle();
     switchState('verdict', { dramatic: true });
-    if (isAppeal) showToast('A fresh ruling has been handed down.');
+    if (mode === 'appeal') showToast('A fresh ruling has been handed down.');
+    if (mode === 'answer') showToast('The court has re-evaluated the case with your answer.');
   } catch (err) {
     stopStatusCycle();
     switchState('intake');
     showError(err.message || 'Something went wrong. Please try again.');
-    if (isAppeal) showToast('Appeal failed: ' + (err.message || 'Try again.'));
+    if (isReevaluation) showToast('Re-evaluation failed: ' + (err.message || 'Try again.'));
   }
 }
 
-function startStatusCycle() {
+function startStatusCycle(lines = STATUS_LINES) {
   const el = document.getElementById('deliberation-status');
   let i = 0;
-  el.textContent = STATUS_LINES[0];
+  el.textContent = lines[0];
   function tick() {
-    i = (i + 1) % STATUS_LINES.length;
-    el.textContent = STATUS_LINES[i];
+    i = (i + 1) % lines.length;
+    el.textContent = lines[i];
     statusTimer = setTimeout(tick, 1500);
   }
   statusTimer = setTimeout(tick, 1500);
@@ -217,7 +324,7 @@ function closeHistory() {
 function loadHistoryRuling(ruling) {
   closeHistory();
   currentRuling = ruling;
-  currentArgument = '';
+  currentArgument = ruling.argument || '';
   renderVerdict(ruling);
   switchState('verdict');
 }
@@ -248,6 +355,16 @@ function showError(msg) {
 
 function hideError() {
   document.getElementById('error-message').classList.remove('active');
+}
+
+function showAddendumError(msg) {
+  const el = document.getElementById('addendum-error');
+  el.textContent = msg;
+  el.classList.add('active');
+}
+
+function hideAddendumError() {
+  document.getElementById('addendum-error').classList.remove('active');
 }
 
 export function showToast(message) {

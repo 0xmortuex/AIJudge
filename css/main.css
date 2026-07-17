@@ -630,3 +630,88 @@ a { color: var(--gold-400); }
   .action-buttons { gap: 0.5rem; }
   .btn-action { flex: 1 1 45%; }
 }
+
+/* =========================================================
+   ADDENDUM MODAL — appeal details / answering the court
+   ========================================================= */
+.addendum-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 6, 10, 0.82);
+  backdrop-filter: blur(3px);
+  z-index: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-base) var(--ease-out);
+  padding: 1.5rem;
+}
+.addendum-overlay.active { opacity: 1; pointer-events: auto; }
+
+.addendum-modal {
+  background: var(--ink-900);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  width: min(560px, 100%);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  transform: translateY(16px) scale(0.98);
+  opacity: 0;
+  transition: transform var(--dur-slow) var(--ease-spring), opacity var(--dur-slow) var(--ease-out);
+  box-shadow: 0 40px 100px -20px rgba(0,0,0,0.7);
+}
+.addendum-overlay.active .addendum-modal { transform: translateY(0) scale(1); opacity: 1; }
+
+.addendum-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1.1rem 1.3rem;
+  border-bottom: 1px solid var(--line);
+}
+.addendum-title { font-family: var(--font-display); font-weight: 700; color: var(--gold-300); }
+.addendum-close { background: none; border: none; color: var(--text-dim); font-size: 1.4rem; line-height: 1; }
+.addendum-close:hover { color: var(--gold-400); }
+
+.addendum-body {
+  padding: 1.2rem 1.3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  overflow-y: auto;
+}
+.addendum-hint { color: var(--text-dim); font-size: 0.92rem; line-height: 1.5; }
+
+.addendum-question-quote {
+  font-family: var(--font-legal);
+  font-style: italic;
+  color: var(--gold-300);
+  border-left: 3px solid var(--gold-500);
+  background: rgba(227, 189, 92, 0.06);
+  padding: 0.8rem 1rem;
+  border-radius: 0 8px 8px 0;
+  line-height: 1.55;
+}
+
+.addendum-input {
+  width: 100%;
+  min-height: 130px;
+  resize: vertical;
+  background: var(--ink-950);
+  border: 1px solid var(--ink-600);
+  border-radius: 10px;
+  color: var(--text);
+  font-family: var(--font-legal);
+  font-size: 1rem;
+  line-height: 1.55;
+  padding: 0.9rem 1rem;
+}
+.addendum-input::placeholder { color: var(--text-faint); font-style: italic; }
+.addendum-input:focus { outline: none; border-color: var(--gold-500); }
+
+.addendum-actions {
+  display: flex; gap: 0.7rem; padding: 1.1rem 1.3rem;
+  border-top: 1px solid var(--line);
+}
+.addendum-actions .btn-action { flex: 1; max-width: none; }
