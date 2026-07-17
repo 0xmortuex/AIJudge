@@ -65,6 +65,9 @@ async function generateShareImage() {
     clone.removeAttribute('id');
     clone.classList.add('certificate');
 
+    // The "Answer the Court" button is interactive chrome, not part of the ruling.
+    clone.querySelectorAll('.btn-answer-question').forEach(el => el.remove());
+
     const brand = document.createElement('div');
     brand.className = 'cert-brand';
     brand.textContent = 'Certificate of Ruling — AIJudge';

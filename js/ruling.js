@@ -145,6 +145,13 @@ export function renderVerdict(data) {
         <div class="advice-text">${esc(data.advice)}</div>
       </div>` : ''}
 
+    ${data.clarifyingQuestion ? `
+      <div class="ruling-section question-section">
+        <div class="section-header">The Court Requests Clarification</div>
+        <div class="question-text">${esc(data.clarifyingQuestion)}</div>
+        <button class="btn-answer-question" type="button">&#9993;&#65039; Answer the Court</button>
+      </div>` : ''}
+
     <div class="card-footer">
       <p>Ruled by AIJudge &mdash; ${esc(formatDate(data.timestamp))}</p>
       <p class="disclaimer">This is an AI-generated ruling for entertainment purposes only.</p>

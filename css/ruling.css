@@ -266,6 +266,34 @@
   filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3));
 }
 
+/* --- Court's clarifying question --- */
+.question-section .question-text {
+  font-family: var(--font-legal);
+  font-style: italic;
+  font-size: 1rem;
+  line-height: 1.6;
+  padding: 0.9rem 1.1rem;
+  background: rgba(111, 184, 217, 0.1);
+  border-left: 3px solid #1c6f8c;
+  border-radius: 0 6px 6px 0;
+  margin-bottom: 0.9rem;
+}
+.btn-answer-question {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: var(--parchment-ink);
+  color: var(--parchment);
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 0.7rem 1.2rem;
+  transition: transform var(--dur-fast) var(--ease-spring), box-shadow var(--dur-fast);
+}
+.btn-answer-question:hover { transform: translateY(-2px); box-shadow: 0 8px 20px -6px rgba(42, 32, 19, 0.5); }
+.btn-answer-question:active { transform: translateY(0) scale(0.97); }
+
 .card-footer {
   margin-top: 2rem;
   padding-top: 1.2rem;

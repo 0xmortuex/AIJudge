@@ -139,6 +139,26 @@
   <!-- Off-screen render target used only by html2canvas -->
   <div id="share-render-container"></div>
 
+  <!-- ============ ADDENDUM MODAL (appeal details / answer the court) ============ -->
+  <div id="addendum-overlay" class="addendum-overlay">
+    <div class="addendum-modal">
+      <div class="addendum-header">
+        <span id="addendum-title" class="addendum-title">&#128260; File an Appeal</span>
+        <button id="addendum-close" class="addendum-close" type="button">&times;</button>
+      </div>
+      <div class="addendum-body">
+        <p id="addendum-hint" class="addendum-hint"></p>
+        <blockquote id="addendum-question" class="addendum-question-quote" style="display:none;"></blockquote>
+        <textarea id="addendum-input" class="addendum-input" aria-label="Additional details for the court"></textarea>
+        <div id="addendum-error" class="error-message" role="alert"></div>
+      </div>
+      <div class="addendum-actions">
+        <button id="addendum-cancel" class="btn-action" type="button">Cancel</button>
+        <button id="addendum-submit" class="btn-action btn-share" type="button">Submit to the Court</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ============ HISTORY DRAWER ============ -->
   <div id="history-backdrop" class="history-backdrop"></div>
   <div id="history-panel" class="history-panel">

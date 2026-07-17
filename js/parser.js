@@ -69,6 +69,7 @@ export function parseRuling(raw) {
   data.advice = data.advice || '';
   data.keyEvidence = data.keyEvidence || '';
   data.category = data.category || 'other';
+  data.clarifyingQuestion = data.clarifyingQuestion || '';
 
   // Timestamp
   data.timestamp = Date.now();
