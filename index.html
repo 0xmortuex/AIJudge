@@ -17,9 +17,10 @@
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Lora:ital,wght@0,400;0,600;1,400;1,600&family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
 
   <!-- Styles -->
-  <link rel="stylesheet" href="css/main.css">
-  <link rel="stylesheet" href="css/ruling.css">
-  <link rel="stylesheet" href="css/share.css">
+  <!-- ?v= busts stale browser caches; bump it when the stylesheets change -->
+  <link rel="stylesheet" href="css/main.css?v=2">
+  <link rel="stylesheet" href="css/ruling.css?v=2">
+  <link rel="stylesheet" href="css/share.css?v=2">
 
   <!-- html2canvas (used only for the "Share Ruling" certificate export).
        Vendored locally: loading it from a CDN meant the certificate capture
@@ -104,6 +105,7 @@
           <span>AIJudge</span>
         </div>
         <div class="top-bar-actions">
+          <button id="top-share" class="btn-secondary btn-share-top" type="button">&#128248; Share</button>
           <button id="top-new-case" class="btn-secondary" type="button">&#9878; New Case</button>
           <button id="top-history" class="btn-secondary" type="button">&#128220; Past Rulings</button>
         </div>
